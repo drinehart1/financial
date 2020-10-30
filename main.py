@@ -12,6 +12,7 @@
 # LOAD PREREQUISITES
 #import requests
 try:
+    import constants
     import os
     from urllib.request import urlopen
     import json
@@ -28,8 +29,6 @@ except ImportError:
 # OUTPUT DATA DESTINATION (WINDOWS FORMAT)
 outpath = "D://financial"
 
-# SOURCE: https://financialmodelingprep.com/
-api_key = '6049b76c7f5fc22e84c6691343c9975f'
 api_base_url = 'https://financialmodelingprep.com/api/v3/profile/'
 
 class conn:
@@ -40,7 +39,7 @@ class conn:
 
     def pull_data(self, symbol):
         # CREATE CONNECTION IF NOT EXISTS
-        data_src = api_base_url + symbol + '?apikey=' + api_key
+        data_src = api_base_url + symbol + '?apikey=' + constants.api_key
         response = urlopen(data_src)
         data = response.read().decode("utf-8")
         return json.loads(data)
