@@ -15,6 +15,7 @@ try:
     import finviz
     import os
     import time
+    import multiprocessing
     from datetime import datetime
     import pandas as pd
     import xlsxwriter
@@ -27,17 +28,28 @@ try:
 except ImportError:
     print('ERROR LOADING PREREQUISITES')
 
+# GLOBAL VARIABLES
+stock_data = []
+
+def lookup(stock):
+    stock_data.append(finviz.get_stock(stock))
+    return
 
 def main():
-    stock_data = []
 
     stock_list = ['ET', 'MSFT', 'CFG', 'T', 'UVE', 'SJI', 'UBS', 'CSCO', 'ZION', 'AGI', 'XOM', 'OPK', 'RKT', 'XOM', 'OKE', 'LUMN', 'SPH', 'LNC', 'KR', 'ORA']
     stock_list = list(dict.fromkeys(stock_list)) #DEDUPLICATE
-    stock_list.sort()
 
+    processes = []
     for stock in stock_list:
-        stock_data.append(finviz.get_stock(stock))
+        p = multiprocessing.Process(target=lookup(stock))
+        p.start()
+        processes.append(p)
 
+    for process in processes:
+        process.join() #WAIT FOR PROCESSES TO FINISH BEFORE CONTINUING
+
+    stock_list.sort() #SORT AFTER LOOKUPS BECAUSE EACH LOOKUP IS INDEPENDENT
     df = pd.DataFrame(data=stock_data)
     df.insert(loc=0, column='symbol', value=stock_list) #ADD SYMBOLS TO BEGINNING OF DATAFRAME
 
