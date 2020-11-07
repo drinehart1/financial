@@ -1,7 +1,7 @@
 # SRC: https://github.com/mariostoev/finviz
 
 # CREATED: 30-OCT-2020
-# LAST EDIT: 04-NOV-2020
+# LAST EDIT: 07-NOV-2020
 # AUTHORS: DUANE RINEHART, MBA (duane.rinehart@gmail.com)
 
 # IMPLEMENTS API CONNECTION TO STOCK INFORMATION SERVICE FINVIZ FOR PURPOSES OF STOCK SCREENING
@@ -14,6 +14,7 @@ try:
     import constants
     import finviz
     import os
+    import time
     from datetime import datetime
     import pandas as pd
     import xlsxwriter
@@ -77,6 +78,7 @@ def main():
     #print(stock_list)
 
 if __name__ == '__main__':
+    start = time.perf_counter()
     print('SCRIPT START:', os.path.basename(__file__))
     now = datetime.now() # datetime object containing current date and time
     dt_string = now.strftime("%m/%d/%Y %H:%M:%S")
@@ -88,3 +90,5 @@ if __name__ == '__main__':
     now = datetime.now()  # datetime object containing current date and time
     dt_string = now.strftime("%m-%d-%Y %H:%M:%S")
     print('SCRIPT END TIMESTAMP:', dt_string)
+    finish = time.perf_counter()
+    print(f'EXECUTION TIME: {round(finish-start,2)}s')
