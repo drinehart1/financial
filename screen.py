@@ -15,7 +15,7 @@ try:
     import finviz
     import os
     import time
-    import multiprocessing
+    import concurrent.futures
     from datetime import datetime
     import pandas as pd
     import xlsxwriter
@@ -33,36 +33,36 @@ stock_data = []
 
 def lookup(stock):
     stock_data.append(finviz.get_stock(stock))
-    return
 
-def main():
+def main(output):
 
     stock_list = ['ET', 'MSFT', 'CFG', 'T', 'UVE', 'SJI', 'UBS', 'CSCO', 'ZION', 'AGI', 'XOM', 'OPK', 'RKT', 'XOM', 'OKE', 'LUMN', 'SPH', 'LNC', 'KR', 'ORA']
     stock_list = list(dict.fromkeys(stock_list)) #DEDUPLICATE
 
-    processes = []
-    for stock in stock_list:
-        p = multiprocessing.Process(target=lookup(stock))
-        p.start()
-        processes.append(p)
+    with concurrent.futures.ThreadPoolExecutor() as executor: #AUTO-JOINS PROCESSES (WAITS FOR PROCESSES TO COMPLETE BEFORE CONTINUING WITH SCRIPT)
+       for stock in stock_list:
+          f1 = executor.submit(lookup(stock)) #SCHEDULES METHOD FOR EXECUTION AND RETURNS FUTURE OBJECT
 
-    for process in processes:
-        process.join() #WAIT FOR PROCESSES TO FINISH BEFORE CONTINUING
-
-    stock_list.sort() #SORT AFTER LOOKUPS BECAUSE EACH LOOKUP IS INDEPENDENT
     df = pd.DataFrame(data=stock_data)
     df.insert(loc=0, column='symbol', value=stock_list) #ADD SYMBOLS TO BEGINNING OF DATAFRAME
 
-    #SAVE RAW STOCK DATA IN WORKSHEET 'raw_stocks'
-    writer = pd.ExcelWriter(constants.outpath + 'stock_data_output.xlsx', engine='xlsxwriter')
-    df.to_excel(writer, index=False, sheet_name='raw_stocks')
-    workbook = writer.bookworksheet = writer.sheets['raw_stocks']
+    # EXTRACT SPECIFIC COLUMNS FOR ANALYSIS
+    df2 = df[['symbol', 'Price', 'Dividend', 'Dividend %']]
+
+    #SAVE RAW STOCK DATA IN WORKSHEET 'raw_data'
+    writer = pd.ExcelWriter(output, engine='xlsxwriter')
+    df.to_excel(writer, index=False, sheet_name='raw_data')
+    workbook = writer.bookworksheet = writer.sheets['raw_data']
 
     #SAVE ANALYSIS DATA IN WORKSHEET 'analysis'
-    df2 = pd.DataFrame(data=stock_list)
-    df2.columns = ["symbol"]
-    df2.to_excel(writer, sheet_name='analysis', index=False)
+    #for item in df:
+    #    print(df['symbol'], df['Price'], df['Dividend'], df['Dividend %'])
 
+
+
+    #df2 = pd.DataFrame(data=stock_list)
+    #df2.columns = ["symbol"]
+    df2.to_excel(writer, sheet_name='analysis', index=False)
     writer.save()
 
     #finviz.get_analyst_price_targets('AAPL')
@@ -91,13 +91,13 @@ def main():
 
 if __name__ == '__main__':
     start = time.perf_counter()
-    print('SCRIPT START:', os.path.basename(__file__))
+    print('SCRIPT NAME:', os.path.basename(__file__))
     now = datetime.now() # datetime object containing current date and time
     dt_string = now.strftime("%m/%d/%Y %H:%M:%S")
     print("SCRIPT START TIMESTAMP:", dt_string)
-    print('OUTPUT DESTINATION:', constants.outpath + 'output.csv')
+    print('OUTPUT DESTINATION:', constants.outpath + constants.outfile)
 
-    main()
+    main(constants.outpath + constants.outfile)
 
     now = datetime.now()  # datetime object containing current date and time
     dt_string = now.strftime("%m-%d-%Y %H:%M:%S")
