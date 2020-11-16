@@ -1,7 +1,7 @@
 # SRC: https://github.com/mariostoev/finviz
 
 # CREATED: 30-OCT-2020
-# LAST EDIT: 07-NOV-2020
+# LAST EDIT: 16-NOV-2020
 # AUTHORS: DUANE RINEHART, MBA (duane.rinehart@gmail.com)
 
 # IMPLEMENTS API CONNECTION TO STOCK INFORMATION SERVICE FINVIZ FOR PURPOSES OF STOCK SCREENING
@@ -21,48 +21,65 @@ try:
     import xlsxwriter
 
     # from finviz.screener import Screener
-    #from urllib.request import urlopen
-    #import json
-    #import csv
+    # from urllib.request import urlopen
+    # import json
+    # import csv
 
 except ImportError:
     print('ERROR LOADING PREREQUISITES')
+    exit()
 
 # GLOBAL VARIABLES
 stock_data = []
 
+
+def load_stock_list():
+    infile = os.path.join(constants.outpath, 'blotter.xlsx')
+    return pd.read_excel(infile, sheet_name='Public')
+
+
 def lookup(stock):
     stock_data.append(finviz.get_stock(stock))
 
+
 def main(output):
+    xl_df = load_stock_list()
+    stock_list = xl_df['SYMBOL'].values.tolist()
+    stock_list = list(dict.fromkeys(stock_list)) # DEDUPLICATE
 
-    stock_list = ['ET', 'MSFT', 'CFG', 'T', 'UVE', 'SJI', 'UBS', 'CSCO', 'ZION', 'AGI', 'XOM', 'OPK', 'RKT', 'XOM', 'OKE', 'LUMN', 'SPH', 'LNC', 'KR', 'ORA']
-    stock_list = list(dict.fromkeys(stock_list)) #DEDUPLICATE
-
-    with concurrent.futures.ThreadPoolExecutor() as executor: #AUTO-JOINS PROCESSES (WAITS FOR PROCESSES TO COMPLETE BEFORE CONTINUING WITH SCRIPT)
+    with concurrent.futures.ThreadPoolExecutor() as executor: # AUTO-JOINS PROCESSES (WAITS FOR PROCESSES TO COMPLETE BEFORE CONTINUING WITH SCRIPT)
        for stock in stock_list:
-          f1 = executor.submit(lookup(stock)) #SCHEDULES METHOD FOR EXECUTION AND RETURNS FUTURE OBJECT
+          f1 = executor.submit(lookup(stock)) # SCHEDULES METHOD FOR EXECUTION AND RETURNS FUTURE OBJECT
 
     df = pd.DataFrame(data=stock_data)
-    df.insert(loc=0, column='symbol', value=stock_list) #ADD SYMBOLS TO BEGINNING OF DATAFRAME
+    df.insert(loc=0, column='symbol', value=stock_list) # ADD SYMBOLS TO BEGINNING OF DATAFRAME
 
-    # EXTRACT SPECIFIC COLUMNS FOR ANALYSIS
-    df2 = df[['symbol', 'Price', 'Dividend', 'Dividend %']]
-
-    #SAVE RAW STOCK DATA IN WORKSHEET 'raw_data'
+    # SAVE RAW STOCK DATA IN WORKSHEET 'raw_data'
     writer = pd.ExcelWriter(output, engine='xlsxwriter')
     df.to_excel(writer, index=False, sheet_name='raw_data')
     workbook = writer.bookworksheet = writer.sheets['raw_data']
 
-    #SAVE ANALYSIS DATA IN WORKSHEET 'analysis'
-    #for item in df:
-    #    print(df['symbol'], df['Price'], df['Dividend'], df['Dividend %'])
+    # MERGE DATAFRAMES PRIOR TO SAVE
+    df2 = df[['symbol', 'Price', 'Dividend', 'Dividend %']] # EXTRACT SPECIFIC COLUMNS FOR ANALYSIS
+    input_stock_list = pd.DataFrame(xl_df, columns=['SYMBOL', 'UNITARY', 'BROKER', 'EXIT_TARGET'])
+    mergeDf = pd.merge(input_stock_list, df2, left_on='SYMBOL', right_on='symbol')
 
+    mergeDf.insert(loc=8, column='ROI', value='')
+    mergeDf.insert(loc=9, column='ACTION', value='')
 
+    # SAVE ANALYSIS DATA IN WORKSHEET 'analysis'
+    mergeDf.to_excel(writer, sheet_name='analysis', index=False)
+    workbook = writer.book
+    worksheet = writer.sheets['analysis']
+    for row in range(2, mergeDf.shape[0] + 2):
+        formula = f'=(F{row}-B{row})/B{row}'
+        worksheet.write_formula(f"I{row}", formula)
 
-    #df2 = pd.DataFrame(data=stock_list)
-    #df2.columns = ["symbol"]
-    df2.to_excel(writer, sheet_name='analysis', index=False)
+        #formula2 = f'=IF(I{row}>0.2),1,0)'
+        #worksheet.write_formula(f"J{row}", formula2)
+
+    percent_fmt = workbook.add_format({'num_format': '0.0%'})
+    worksheet.set_column('I:I', None, percent_fmt)
     writer.save()
 
     #finviz.get_analyst_price_targets('AAPL')
@@ -95,9 +112,12 @@ if __name__ == '__main__':
     now = datetime.now() # datetime object containing current date and time
     dt_string = now.strftime("%m/%d/%Y %H:%M:%S")
     print("SCRIPT START TIMESTAMP:", dt_string)
-    print('OUTPUT DESTINATION:', constants.outpath + constants.outfile)
+    os.chdir(constants.outpath)
+    out_dir = os.path.join(constants.outpath, constants.outfile)
+    print('CURRENT PATH:', os.getcwd())
+    print('OUTPUT DESTINATION:', os.path.join(constants.outpath, constants.outfile))
 
-    main(constants.outpath + constants.outfile)
+    main(out_dir)
 
     now = datetime.now()  # datetime object containing current date and time
     dt_string = now.strftime("%m-%d-%Y %H:%M:%S")
